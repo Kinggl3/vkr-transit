@@ -268,11 +268,101 @@ def build_graph(st: pd.DataFrame) -> pd.DataFrame:
         Wk[Wk < 1] = 0                                   # меньше 1 поездки в день — не связь
         save_edges(f"{name}_top{OD_TOP_K}", Wk, ids)
     print(f"  OD-пар со станциями вне панели: {lost:.2%} (отброшены)")
+    build_dynamic_od(ids)
     W = np.load(GRAPH / "adj_od.npy")
     st["od_out_flow"] = W.sum(axis=1).astype("float32")
     st["od_in_flow"] = W.sum(axis=0).astype("float32")
     st["od_out_degree"] = (W >= 1).sum(axis=1).astype("int16")      # куда едут хотя бы 1 раз в день
     return st
+
+
+# ---------------------------------------------------------------------------
+# Динамический граф OD: свои связи для каждого типа дня × интервала суток
+# ---------------------------------------------------------------------------
+# download_od.py сохраняет части OD по (месяц × день недели × интервал часов) в data/raw/od/parts/.
+# Статический граф суммирует их в сутки; здесь интервалы сохраняются, чтобы графовая модель могла
+# использовать разные связи утром, днём и вечером, в будни и выходные.
+DYN_DAYTYPES = ["weekday", "weekend"]
+DYN_BANDS = [(0, 5), (6, 9), (10, 15), (16, 19), (20, 23)]     # совпадают с BANDS в download_od.py
+PART_RE = re.compile(r"^(\d{4})_(\d{2})_([A-Za-z]+)_(\d{2})-(\d{2})\.parquet$")
+
+
+def dyn_slice(ts: pd.Series) -> pd.Series:
+    """Номер среза динамического графа для каждой метки времени: daytype * len(DYN_BANDS) + band.
+
+    Тип дня — по дню недели (праздники считаются по дню недели, как в данных MTA OD)."""
+    ts = pd.to_datetime(ts)
+    daytype = (ts.dt.dayofweek >= 5).astype(int)
+    band = np.select([ts.dt.hour <= hi for _, hi in DYN_BANDS], range(len(DYN_BANDS)))
+    return pd.Series(daytype.values * len(DYN_BANDS) + band, index=ts.index, dtype="int8")
+
+
+def build_dynamic_od(ids: list):
+    # Части читаются по одной и сразу добавляются в матрицы: склеивать все ~12 млн строк
+    # в одну таблицу не нужно (на ноутбуке не хватает памяти).
+    n, nb, nd = len(ids), len(DYN_BANDS), len(DYN_DAYTYPES)
+    pos = pd.Series(np.arange(n), index=pd.Index(ids, dtype=object))
+    S = np.zeros((nd, nb, n, n), dtype="float64")          # сумма потоков по частям
+    days = [set() for _ in range(nd)]                       # какие (месяц, день недели) вошли
+    n_files = 0
+    for f in sorted((RAW / "od" / "parts").glob("*.parquet")):
+        m = PART_RE.match(f.name)
+        if not m:
+            continue
+        year, month, dow, lo, hi = m.groups()
+        if (int(lo), int(hi)) not in DYN_BANDS:
+            continue
+        d = pd.read_parquet(f, columns=["origin", "destination", "flow"])
+        if not len(d):
+            continue
+        dt, b = int(dow in ("Saturday", "Sunday")), DYN_BANDS.index((int(lo), int(hi)))
+        o = pos.reindex(d["origin"].astype(str).to_numpy(object)).to_numpy()
+        de = pos.reindex(d["destination"].astype(str).to_numpy(object)).to_numpy()
+        ok = ~np.isnan(o) & ~np.isnan(de)
+        o, de = o[ok].astype(int), de[ok].astype(int)
+        np.add.at(S[dt, b], (o, de), d["flow"].to_numpy(float)[ok])
+        days[dt].add((year, month, dow))
+        n_files += 1
+        del d
+    if not n_files:
+        print("  частей OD по интервалам нет — динамический граф пропущен")
+        return
+    print(f"  частей OD прочитано: {n_files}; дней (месяц × день недели): будни {len(days[0])}, выходные {len(days[1])}")
+
+    A = np.zeros((nd, nb, n, n), dtype="float32")
+    rows = np.arange(n)[:, None]
+    stats = []
+    for dt in range(nd):
+        for b in range(nb):
+            if not days[dt]:
+                continue
+            hours = DYN_BANDS[b][1] - DYN_BANDS[b][0] + 1
+            W = (S[dt, b] / len(days[dt]) / hours).astype("float32")     # поездок в час
+            np.fill_diagonal(W, 0)
+            top = np.argsort(-W, axis=1)[:, :OD_TOP_K]
+            Wk = np.zeros_like(W)
+            Wk[rows, top] = W[rows, top]
+            Wk[Wk < 0.1] = 0                     # меньше 0,1 поездки в час — не связь
+            A[dt, b] = Wk
+            stats.append((dt * nb + b, DYN_DAYTYPES[dt], f"{DYN_BANDS[b][0]:02d}–{DYN_BANDS[b][1]:02d}",
+                          float(W.sum()), int((Wk > 0).sum())))
+    del S
+    np.save(GRAPH / f"adj_od_dyn_top{OD_TOP_K}.npy", A)
+
+    # Насколько срезы отличаются от статического графа: доля общих рёбер с adj_od_top10
+    static = np.load(GRAPH / f"adj_od_top{OD_TOP_K}.npy") > 0
+    meta = {"shape": ["daytype", "band", "origin", "destination"], "daytypes": DYN_DAYTYPES,
+            "bands": [f"{lo}-{hi}" for lo, hi in DYN_BANDS], "unit": "поездок в час (среднее)",
+            "top_k": OD_TOP_K, "slice_of_timestamp": "daytype * 5 + band; daytype: 0 = пн–пт, 1 = сб–вс",
+            "slices": []}
+    print(f"  adj_od_dyn_top{OD_TOP_K}: {A.shape}")
+    for k, dt, band, total, edges in stats:
+        same = float(((A.reshape(-1, n, n)[k] > 0) & static).sum() / max(edges, 1))
+        meta["slices"].append({"daytype": dt, "band": band, "trips_per_hour": round(total),
+                               "edges": edges, "share_edges_in_static": round(same, 3)})
+        print(f"    {dt:8s} {band}: поездок в час {total:>9,.0f}, рёбер {edges:,}, "
+              f"из них в статическом графе {same:.0%}")
+    (GRAPH / "od_dyn_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
