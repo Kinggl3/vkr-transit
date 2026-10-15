@@ -145,12 +145,16 @@ def main():
         ("режимы", "regime_student_omny, cp_active", "да"),
         ("городские события", "city_event, is_city_event, holiday_shopping_weekend", "да"),
         ("события на площадках", "ev_today, ev_active, ev_hours_from_start, ev_kind (MLB, MiLB, NBA, WNBA, US Open)",
-         "да (расписания); отмены учтены по факту"),
-        ("погода", "температура, осадки, снег, ветер и др.: город / сетка 0.1° / сетка 0.25° (Open-Meteo, ERA5)",
-         "нет — фактическая погода; допущение «идеальный прогноз погоды»"),
+         "да: по расписанию, перенесённые и отменённые матчи остаются на исходной дате"),
+        ("погода (факт)", "температура, осадки, снег, ветер и др.: город / сетка 0.1° / сетка 0.25° (Open-Meteo, ERA5)",
+         "нет — фактическая погода; используется для обучения"),
+        ("погода (прогноз)", "те же переменные без snow_depth: прогноз, выпущенный за 24 ч (Open-Meteo Previous Runs), "
+         "город / сетка 0.1°, с 2024 года", "да — для оценки на val/test"),
         ("станция", "scale_weekday, commute_index, cluster, n_lines, in_cbd, borough, координаты, venue", "да (по train)"),
         ("граф", "od_out_flow, od_in_flow, od_out_degree; матрицы смежности в `graph/`", "да (по OD 2024)"),
-        ("закрытия", "is_closed (по дням)",
+        ("закрытия вчера", "closed_prev_day, closed_run_days, level_prev_day (доля обычного уровня вчера)",
+         "да: по спросу до конца вчерашнего дня и медиане прошлых 52 недель"),
+        ("закрытия (маска)", "is_closed (по дням)",
          "нет: флаг вычислен по фактическому спросу этого же дня — использовать только как маску "
          "(исключать из обучения и метрик), но не как входной признак, иначе утечка"),
     ], columns=["Группа", "Признаки", "Известен заранее"])))
@@ -162,6 +166,8 @@ def main():
         rows = []
         for f in sorted(gdir.glob("adj_*.npy")):
             A = np.load(f)
+            if A.ndim != 2:
+                continue
             n = A.shape[0]
             nz = (A > 0).sum()
             rows.append({"матрица": f.stem, "узлов": n, "рёбер": fmt(nz), "плотность": f"{nz / (n * (n - 1)):.2%}",
@@ -172,6 +178,18 @@ def main():
           "`adj_od`, `adj_od_am` — средний поток поездок в будний день (весь день и 6–9 ч), направленные, почти полные; "
           "`adj_od_top10`, `adj_od_am_top10` — для каждой станции 10 направлений с наибольшим потоком "
           "(рекомендуются для графовых моделей).\n")
+        dyn = gdir / "od_dyn_meta.json"
+        if dyn.exists():
+            meta = json.loads(dyn.read_text(encoding="utf-8"))
+            w("**Динамический граф** `adj_od_dyn_top10.npy`, форма (тип дня, интервал, откуда, куда): "
+              "10 главных направлений поездок с каждой станции отдельно для будней и выходных и 5 интервалов суток. "
+              "Вес — поездок в час. Срез для метки времени: `dyn_slice()` в `build_features.py`.\n")
+            w(md_table(pd.DataFrame([{"тип дня": "будни" if x["daytype"] == "weekday" else "выходные",
+                                      "часы": x["band"], "поездок в час": fmt(x["trips_per_hour"]),
+                                      "рёбер": fmt(x["edges"]),
+                                      "из них в статическом top-10": f"{x['share_edges_in_static']:.0%}"}
+                                     for x in meta["slices"]])))
+            w("")
 
     lab = PROCESSED / "lab"
     if (lab / "split.json").exists():
@@ -183,14 +201,42 @@ def main():
             ("covariates_time.parquet", "ковариаты по часам: календарь, режимы, события, погода (город)"),
             ("station_static.parquet", "статические признаки станций"),
             ("split.json", "границы выборок и порядок станций"),
+            ("weather_forecast_city.parquet", "прогноз погоды на сутки, те же колонки, что погода в covariates_time"),
+            ("closed_prev_day_wide.parquet и др.", "день × станция: закрыта вчера, дней подряд, доля обычного уровня вчера"),
             ("../graph/nodes.csv, adj_*.npy", "граф; порядок узлов = порядок столбцов ridership_wide"),
         ], columns=["Файл", "Содержимое"])))
         w("")
 
-    w("## 9. Источники\n")
+    fc_path = RAW / "weather_forecast_hourly.parquet"
+    if fc_path.exists():
+        fc = pd.read_parquet(fc_path)
+        act = pd.read_parquet(RAW / "weather_hourly.parquet")
+        m = fc.merge(act, on="transit_timestamp", suffixes=("_fc", "_act")).dropna(
+            subset=["temperature_2m_fc", "temperature_2m_act", "precipitation_fc", "precipitation_act"])
+        m["split"] = split_of(m["transit_timestamp"])
+        w("## 9. Прогноз погоды против фактической\n")
+        w("Прогноз выпущен за 24 ч до часа (Open-Meteo Previous Runs, переменные `*_previous_day1`), точка Центральный парк. "
+          "Обучение — на фактической погоде, оценка на val/test — на прогнозной; разница в ошибке модели "
+          "показывает цену допущения «идеальный прогноз погоды».\n")
+        rows = []
+        for name, g in [("все часы", m)] + [(n, m[m["split"] == n]) for n in SPLITS]:
+            if not len(g):
+                continue
+            ra, rf = g["precipitation_act"] >= 0.5, g["precipitation_fc"] >= 0.5
+            day = g.groupby(g["transit_timestamp"].dt.date)[["precipitation_fc", "precipitation_act"]].sum()
+            rows.append({"период": name, "часов": fmt(len(g)),
+                         "MAE температуры, °C": fmt((g["temperature_2m_fc"] - g["temperature_2m_act"]).abs().mean(), 2),
+                         "дождь ≥ 0,5 мм: пойман": f"{(ra & rf).sum() / max(ra.sum(), 1):.0%}",
+                         "ложные тревоги": f"{(~ra & rf).sum() / max(rf.sum(), 1):.0%}",
+                         "корр. суточных осадков": fmt(np.corrcoef(day["precipitation_fc"], day["precipitation_act"])[0, 1], 2)})
+        w(md_table(pd.DataFrame(rows)))
+        w("")
+
+    w("## 10. Источники\n")
     w("- MTA Subway Hourly Ridership: https://data.ny.gov/d/wujg-7c2s, https://data.ny.gov/d/5wq4-mkjj")
-    w("- MTA Subway Origin-Destination Ridership Estimate 2024: https://data.ny.gov/d/jsu2-fbtj")
+    w("- MTA Subway Origin-Destination Ridership Estimate 2024: https://data.ny.gov/d/jsu2-fbtj (месяцы и интервалы суток — в `od_dyn_meta.json`)")
     w("- Open-Meteo Historical Weather API: https://open-meteo.com/en/docs/historical-weather-api")
+    w("- Open-Meteo Previous Model Runs API: https://open-meteo.com/en/docs/previous-runs-api")
     w("- Календари NYC Public Schools 2022/23 – 2026/27: https://www.schools.nyc.gov/calendar")
     w("- MLB Stats API: https://statsapi.mlb.com; ESPN API (NBA, WNBA); US Open: https://www.usopen.org")
 

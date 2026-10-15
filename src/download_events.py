@@ -7,12 +7,16 @@
   * ESPN API: домашние матчи Brooklyn Nets (NBA) и New York Liberty (WNBA) в Barclays Center;
   * US Open (теннис, у станции Mets-Willets Point): даты задаются вручную по официальному сайту.
 
-Берутся только состоявшиеся матчи: перенесённые и отменённые не попадают.
+Сохраняются ВСЕ матчи по расписанию, включая перенесённые и отменённые (колонка status).
+Прогноз спроса строится в 00:00, а матч, перенесённый из-за дождя, обычно отменяют в тот же день,
+поэтому признаки событий строятся по расписанию: оставить только состоявшиеся матчи значило бы
+подсмотреть в будущее. Колонка status нужна для анализа ошибок, а не как признак.
 
 Запуск (из корня проекта):
   python src/download_events.py
 Результат: data/raw/events.csv — одна строка на событие:
-  kind, venue, start (местное время Нью-Йорка), source_id
+  kind, venue, start (местное время Нью-Йорка), source_id,
+  status: final (состоялся) / postponed (перенесён) / cancelled (отменён) / other
 """
 
 import time
@@ -64,6 +68,18 @@ def to_local(utc_str: str) -> pd.Timestamp:
     return pd.Timestamp(utc_str).tz_convert("America/New_York").tz_localize(None)
 
 
+def mlb_status(state: str) -> str:
+    if state.startswith("Final") or state in ("Game Over", "Completed Early"):
+        return "final"
+    if state.startswith("Suspended"):
+        return "suspended"            # начат и прерван: зрители были на стадионе
+    if state.startswith("Postponed"):
+        return "postponed"
+    if state.startswith("Cancelled"):
+        return "cancelled"
+    return "other"                    # Scheduled и т. п.: ещё не сыгран
+
+
 def mlb_events() -> list:
     rows = []
     for kind, sport, team, venue in MLB_TEAMS:
@@ -77,12 +93,11 @@ def mlb_events() -> list:
                     if g.get("venue", {}).get("id") != venue:
                         continue                      # выездной матч
                     state = g.get("status", {}).get("detailedState", "")
-                    if not (state.startswith("Final") or state in ("Game Over", "Completed Early")):
-                        continue                      # перенесён, отменён или ещё не сыгран
                     rows.append({"kind": kind, "venue": g["venue"]["name"],
-                                 "start": to_local(g["gameDate"]), "source_id": f"mlb:{g['gamePk']}"})
+                                 "start": to_local(g["gameDate"]), "source_id": f"mlb:{g['gamePk']}:{d['date']}",
+                                 "status": mlb_status(state)})
                     n += 1
-            print(f"{kind} {season}: {n} домашних матчей", flush=True)
+            print(f"{kind} {season}: {n} домашних матчей по расписанию", flush=True)
             time.sleep(0.5)
     return rows
 
@@ -99,11 +114,15 @@ def espn_events() -> list:
                     comp = ev.get("competitions", [{}])[0]
                     venue = comp.get("venue", {}).get("fullName", "")
                     status = comp.get("status") or ev.get("status") or {}   # у ESPN бывает в обоих местах
-                    done = status.get("type", {}).get("completed", False)
-                    if "Barclays" not in venue or not done:
+                    st = status.get("type", {})
+                    if "Barclays" not in venue:
                         continue
+                    name = st.get("name", "")
                     rows.append({"kind": kind, "venue": venue, "start": to_local(ev["date"]),
-                                 "source_id": f"espn:{ev['id']}"})
+                                 "source_id": f"espn:{ev['id']}",
+                                 "status": "final" if st.get("completed") else
+                                           "postponed" if "POSTPONED" in name else
+                                           "cancelled" if "CANCEL" in name else "other"})
                     n += 1
                 time.sleep(0.5)
             print(f"{kind} сезон {season}: {n} домашних матчей в Barclays Center", flush=True)
@@ -115,11 +134,11 @@ def us_open_events() -> list:
     for year, ((fw_a, fw_b), (md_a, md_b)) in US_OPEN.items():
         for d in pd.date_range(fw_a, fw_b):
             rows.append({"kind": "usopen_fanweek", "venue": "USTA Billie Jean King NTC",
-                         "start": d + pd.Timedelta(hours=11), "source_id": f"usopen:{d:%Y%m%d}"})
+                         "start": d + pd.Timedelta(hours=11), "source_id": f"usopen:{d:%Y%m%d}", "status": "final"})
         for d in pd.date_range(md_a, md_b):
             for h in (11, 19):                        # дневная и вечерняя сессии
                 rows.append({"kind": "usopen_main", "venue": "USTA Billie Jean King NTC",
-                             "start": d + pd.Timedelta(hours=h), "source_id": f"usopen:{d:%Y%m%d}:{h}"})
+                             "start": d + pd.Timedelta(hours=h), "source_id": f"usopen:{d:%Y%m%d}:{h}", "status": "final"})
     print(f"US Open: {len(rows)} сессий")
     return rows
 
@@ -131,6 +150,8 @@ def main():
     ev.to_csv(out, index=False)
     print(f"\nВсего событий: {len(ev)}")
     print(ev.groupby("kind").agg(событий=("start", "size"), с=("start", "min"), по=("start", "max")))
+    print("\nСтатусы (postponed/cancelled раньше отбрасывались — это была утечка):")
+    print(pd.crosstab(ev["kind"], ev["status"]))
     print(f"Сохранено: {out}")
 
 

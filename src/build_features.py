@@ -150,6 +150,13 @@ def build_events(st: pd.DataFrame) -> pd.DataFrame | None:
         print("  data/raw/events.csv нет — признаки событий пропущены (запустите download_events.py)")
         return None
     ev = pd.read_csv(path, parse_dates=["start"])
+    # Признаки строятся по расписанию: перенесённые и отменённые матчи остаются на исходной дате,
+    # потому что в 00:00 они ещё стояли в расписании (отмену объявляют в тот же день).
+    if "status" in ev:
+        print("  статусы событий: " + ", ".join(f"{k} {v}" for k, v in ev["status"].value_counts().items()))
+    else:
+        print("  ВНИМАНИЕ: в events.csv нет status — это старая версия, где отменённые матчи выброшены. "
+              "Перезапустите download_events.py")
     ev = ev[(ev["start"] >= DATA_START - pd.Timedelta(days=1)) & (ev["start"] <= DATA_END + pd.Timedelta(days=1))]
     ev["venue_key"] = ev["kind"].map(KIND_VENUE)
     venue_st = st[st["venue"] != ""][["station_complex_id", "venue"]]
@@ -187,6 +194,60 @@ def build_events(st: pd.DataFrame) -> pd.DataFrame | None:
     out = out[(out["transit_timestamp"] >= DATA_START) & (out["transit_timestamp"] <= DATA_END)]
     print(f"  событий: {len(ev)}; станция×часов с признаками: {len(out):,}")
     print("  " + ev.groupby("kind").size().to_string().replace("\n", "\n  "))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Закрытия, известные на момент прогноза
+# ---------------------------------------------------------------------------
+# is_closed из build_dataset.py считается по спросу того же дня и по медиане за весь год
+# (включая будущие дни) — это маска, а не признак. Здесь строится честный аналог: в 00:00 дня D
+# известен только спрос до конца дня D-1, а «обычный уровень» берётся только по прошлому.
+CLOSURE_SHARE = 0.10        # тот же порог, что CLOSED_SHARE в build_dataset.py
+CLOSURE_REF_WEEKS = 52      # обычный уровень = медиана того же дня недели за прошлые 52 недели
+
+
+def build_closure_lag(panel: pd.DataFrame) -> pd.DataFrame:
+    date = panel["transit_timestamp"].dt.normalize().rename("date")
+    g = panel.groupby([date, panel["station_complex_id"]], observed=True)
+    daily = g["ridership"].sum().unstack()
+    mask = g["is_closed"].max().unstack()
+    del date, g
+    daily.columns = daily.columns.astype(str)
+    mask.columns = mask.columns.astype(str)
+    daily = daily.sort_index().astype("float64")
+
+    # Обычный уровень: медиана того же дня недели за прошлые недели (сам день не входит).
+    # Окно в год: длинное закрытие (5 месяцев линии на Рокавэй) не «становится нормой».
+    ref = pd.DataFrame(index=daily.index, columns=daily.columns, dtype="float64")
+    for dow in range(7):
+        sub = daily[daily.index.dayofweek == dow]
+        ref.loc[sub.index] = sub.rolling(CLOSURE_REF_WEEKS, min_periods=4).median().shift(1).values
+    level = (daily / ref.where(ref > 0)).astype("float64")                 # доля обычного уровня
+    closed = (level < CLOSURE_SHARE).astype("int8")                        # NaN (начало ряда) -> 0
+
+    # Сдвиг на день: в день D видны только итоги D-1
+    level_prev = level.shift(1)
+    closed_prev = closed.shift(1).fillna(0).astype("int8")
+    run = closed_prev.copy().astype("int16")                               # дней подряд закрыта к D-1
+    for i in range(1, len(run)):
+        run.iloc[i] = (run.iloc[i - 1] + 1) * closed_prev.iloc[i]
+
+    out = pd.concat({"closed_prev_day": closed_prev, "closed_run_days": run,
+                     "level_prev_day": level_prev.clip(upper=5).astype("float32")}, axis=1)
+    out = out.stack(level=1, future_stack=True).reset_index()
+    out["station_complex_id"] = out["station_complex_id"].astype(str)
+    out["closed_prev_day"] = out["closed_prev_day"].astype("int8")
+    out["closed_run_days"] = out["closed_run_days"].astype("int16")
+
+    # Согласие с маской is_closed: насколько честный признак успевает «увидеть» закрытия
+    m = mask.sort_index().reindex_like(closed_prev).fillna(0).astype(bool)
+    in_closure = m & m.shift(1, fill_value=False)              # закрыта и сегодня, и вчера
+    caught = (closed_prev.astype(bool) & in_closure).values.sum() / max(in_closure.values.sum(), 1)
+    false = (closed_prev.astype(bool) & ~m).values.sum() / max(closed_prev.values.sum(), 1)
+    print(f"  станционных дней: {out.shape[0]:,}; closed_prev_day = 1: {closed_prev.values.mean():.2%}")
+    print(f"  продолжения закрытий (закрыта и вчера, и сегодня), которые признак видит: {caught:.0%}")
+    print(f"  closed_prev_day = 1, а сегодня станция открыта (закрытие кончилось): {false:.0%}")
     return out
 
 
@@ -371,10 +432,11 @@ def build_dynamic_od(ids: list):
 def export_lab(panel: pd.DataFrame, cal: pd.DataFrame, st: pd.DataFrame):
     LAB.mkdir(parents=True, exist_ok=True)
     ids = sorted(st["station_complex_id"])
-    p = panel.copy()
-    p["station_complex_id"] = p["station_complex_id"].astype(str)
-    y = p.pivot(index="transit_timestamp", columns="station_complex_id", values="ridership")[ids]
-    closed = p.pivot(index="transit_timestamp", columns="station_complex_id", values="is_closed")[ids]
+    p = panel                                   # без копии: панель большая
+    y = p.pivot(index="transit_timestamp", columns="station_complex_id", values="ridership")
+    closed = p.pivot(index="transit_timestamp", columns="station_complex_id", values="is_closed")
+    y.columns, closed.columns = y.columns.astype(str), closed.columns.astype(str)
+    y, closed = y[ids], closed[ids]
     y.astype("int32").to_parquet(LAB / "ridership_wide.parquet")
     closed.astype("bool").to_parquet(LAB / "closed_wide.parquet")
 
@@ -383,6 +445,18 @@ def export_lab(panel: pd.DataFrame, cal: pd.DataFrame, st: pd.DataFrame):
     cov = cov.drop(columns=["holiday_name", "city_event"]).set_index("transit_timestamp")
     cov.astype("float32").to_parquet(LAB / "covariates_time.parquet")
     st.to_parquet(LAB / "station_static.parquet", index=False)
+
+    # Прогноз погоды на сутки (те же колонки, что у фактической) — для val/test вместо факта
+    fc_path = RAW / "weather_forecast_hourly.parquet"
+    if fc_path.exists():
+        fc = pd.read_parquet(fc_path).set_index("transit_timestamp")
+        fc.astype("float32").to_parquet(LAB / "weather_forecast_city.parquet")
+    cl_path = PROCESSED / "closure_lag.parquet"
+    if cl_path.exists():
+        cl = pd.read_parquet(cl_path)
+        for col in ["closed_prev_day", "closed_run_days", "level_prev_day"]:
+            cl.pivot(index="date", columns="station_complex_id", values=col)[ids].to_parquet(
+                LAB / f"{col}_wide.parquet")
 
     meta = {k: [str(a), str(b)] for k, (a, b) in SPLITS.items()}
     meta.update({"n_stations": len(ids), "n_hours": len(y), "freq": "1h", "timezone": "America/New_York (naive)",
@@ -399,8 +473,14 @@ def main():
     print(f"  дней с городскими событиями: {cal.loc[cal['is_city_event'] == 1, 'transit_timestamp'].dt.date.nunique()}")
 
     print("Станции...")
-    panel = pd.read_parquet(PROCESSED / "panel.parquet")
-    panel["station_complex_id"] = panel["station_complex_id"].astype(str)
+    # Только нужные колонки; id станции — категория (14 млн строк-строк заняли бы >1 ГБ)
+    panel = pd.read_parquet(PROCESSED / "panel.parquet",
+                            columns=["station_complex_id", "transit_timestamp", "ridership", "is_closed"])
+    sid = panel["station_complex_id"]
+    if not isinstance(sid.dtype, pd.CategoricalDtype):
+        sid = sid.astype("category")
+    panel["station_complex_id"] = sid.cat.rename_categories(lambda c: str(c))
+    del sid
     st = build_station_static(panel, cal)
 
     print("Граф...")
@@ -412,6 +492,10 @@ def main():
     ev = build_events(st)
     if ev is not None:
         ev.to_parquet(PROCESSED / "events_station_hour.parquet", index=False)
+
+    print("Закрытия, известные заранее...")
+    cl = build_closure_lag(panel)
+    cl.to_parquet(PROCESSED / "closure_lag.parquet", index=False)
 
     print("Экспорт для лабораторной...")
     export_lab(panel, cal, st)

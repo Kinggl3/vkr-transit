@@ -71,6 +71,14 @@ def load_dataset(weather: str | None = "city", start=None, end=None, stations=No
         df["ev_active"] = df["ev_active"].fillna(0).astype("int8")
         df["ev_kind"] = df["ev_kind"].astype(object).fillna("").astype("category")
 
+    cl_path = PROCESSED / "closure_lag.parquet"
+    if cl_path.exists():                     # закрытия, известные в 00:00 (по итогам вчерашнего дня)
+        cl = pd.read_parquet(cl_path)
+        df["date"] = df["transit_timestamp"].dt.normalize()
+        df = df.merge(cl, on=["station_complex_id", "date"], how="left").drop(columns="date")
+        df["closed_prev_day"] = df["closed_prev_day"].fillna(0).astype("int8")
+        df["closed_run_days"] = df["closed_run_days"].fillna(0).astype("int16")
+
     if weather == "city":
         df = df.merge(_weather("city"), on="transit_timestamp", how="left")
     elif weather in ("0.1", "0.25"):
