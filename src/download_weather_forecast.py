@@ -171,7 +171,8 @@ def main():
     empty = cov[cov < 0.95]
     print(f"  часов: {w['transit_timestamp'].nunique():,}; заполнено {w['temperature_2m'].notna().mean():.1%}")
     if len(empty):
-        print("  месяцы с пропусками (> 5%): " + ", ".join(f"{m} ({v:.0%})" for m, v in empty.items()))
+        print("  месяцы с пропусками (> 5%), в скобках доля пропусков: "
+              + ", ".join(f"{m} ({1 - v:.0%})" for m, v in empty.items()))
 
     if args.step is None:
         w = w.drop(columns="grid_id")
