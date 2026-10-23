@@ -1,0 +1,7 @@
+time,model,split,params,fit_s,predict_s,ms_per_origin,peak_mb,gpu,host,notes
+2026-10-23 12:39,snaive168,val,{},0.0,0.3,0.1,983,,DESKTOP-K0SUEM4,
+2026-10-23 12:39,median4w,val,"{""eps"": 10.0, ""weeks"": 4}",0.0,3.5,1.6,983,,DESKTOP-K0SUEM4,
+2026-10-23 12:39,norm_level,val,"{""eps"": 10.0, ""weeks"": 4}",4.8,4.6,2.1,983,,DESKTOP-K0SUEM4,
+2026-10-23 12:39,snaive168,test,{},0.0,0.3,0.2,983,,DESKTOP-K0SUEM4,
+2026-10-23 12:39,median4w,test,"{""eps"": 10.0, ""weeks"": 4}",0.0,3.5,1.7,983,,DESKTOP-K0SUEM4,
+2026-10-23 12:39,norm_level,test,"{""eps"": 10.0, ""weeks"": 4}",4.8,4.3,2.1,983,,DESKTOP-K0SUEM4,

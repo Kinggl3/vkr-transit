@@ -1,0 +1,4 @@
+model,ref,wape_diff,ci_low,ci_high,significant
+median4w,norm_level,0.012740359,0.007085173,0.01943974,True
+norm_level,norm_level,0.0,0.0,0.0,False
+snaive168,norm_level,0.026122272,0.01557453,0.037861716,True
