@@ -23,6 +23,7 @@ from config import RAW
 from forecasting import H, PREDS, RESULTS, STRIDE_COMMON, Data, load_preds
 
 BASELINES = ("snaive168", "median4w", "norm_level")
+FULL, COMMON = "все точки", "общий подсет"
 HORIZON_GROUPS = {"h1": (1, 1), "h2-3": (2, 3), "h4-6": (4, 6), "h7-12": (7, 12), "h13-24": (13, 24)}
 HOUR_GROUPS = {"ночь 0–5": (0, 5), "утренний пик 6–9": (6, 9), "день 10–15": (10, 15),
                "вечерний пик 16–19": (16, 19), "вечер 20–23": (20, 23)}
@@ -198,71 +199,82 @@ def evaluate(split: str, models: list[str] | None = None, ref: str | None = None
     slices = build_slices(data, data.target_index(all_origins))
     origin_days = data.index[all_origins].normalize()
 
-    rows, sums = [], {}
+    pos = pd.Series(np.arange(len(all_origins)), index=all_origins)
+    cpos = pos.reindex(common).to_numpy(int)
+    days = {FULL: origin_days, COMMON: origin_days[cpos]}
+    rows, sums = [], {FULL: {}, COMMON: {}}
+
+    def add(model, subset, y, p, m, idx, pr=None, q_idx=None):
+        """Метрики на наборе точек idx (номера в all_origins) — целиком и по разрезам."""
+        r = {"model": model, "subset": subset, "slice": "всё", **point_metrics(y, p, m, scale)}
+        if pr is not None and q_idx is not None:
+            r.update(quantile_metrics(y, pr["quantiles"][q_idx], pr["q_levels"], m))
+        rows.append(r)
+        for nm, sm in slices.items():
+            sm_ = sm[idx] if sm.shape[0] == len(all_origins) else sm
+            rows.append({"model": model, "subset": subset, "slice": nm, **point_metrics(y, p, m & sm_, scale)})
+        sums[subset][model] = day_sums(y, p, m, days[subset])
+        return r
+
     for f in files:
         model = f.name.split("__")[0]
         pr = load_preds(f, data)
-        pos = pd.Series(np.arange(len(all_origins)), index=all_origins)
         have = pos.reindex(pr["origins"])
         if have.isna().any():
             raise SystemExit(f"{f.name}: точки прогноза вне выборки {split}")
         sel = have.to_numpy(int)
-        full = len(sel) == len(all_origins)
-        subset = "все точки" if full else f"подсет ({len(sel)} точек)"
-        y, m, p = y_all[sel], m_all[sel], pr["yhat"]
-        overall = point_metrics(y, p, m, scale)
-        rows.append({"model": model, "subset": subset, "slice": "всё", **overall})
-        for nm, sm in slices.items():
-            sm_ = sm[sel] if sm.shape[0] == len(all_origins) else sm
-            rows.append({"model": model, "subset": subset, "slice": nm, **point_metrics(y, p, m & sm_, scale)})
-        # общий подсет — одинаковый для всех моделей (в том числе для вероятностных)
-        cpos = pos.reindex(common).to_numpy(int)
+        p = pr["yhat"]
+        msg = []
+        if len(sel) == len(all_origins):                       # все точки
+            r = add(model, FULL, y_all[sel], p, m_all[sel], sel)
+            msg.append(f"все точки {r['wape']:.4f}")
+        # общий подсет — одинаковый для всех моделей (и для вероятностных)
         inm = pd.Series(np.arange(len(sel)), index=sel).reindex(cpos)
         if inm.notna().all():
             ii = inm.to_numpy(int)
-            r = {"model": model, "subset": "общий подсет", "slice": "всё", **point_metrics(y[ii], p[ii], m[ii], scale)}
+            q_idx = None
             if "quantiles" in pr:
                 qpos = pd.Series(np.arange(len(pr["q_origins"])), index=pr["q_origins"]).reindex(common)
-                if qpos.notna().all():
-                    q = pr["quantiles"][qpos.to_numpy(int)]
-                    r.update(quantile_metrics(y[ii], q, pr["q_levels"], m[ii]))
-            rows.append(r)
-        if full:
-            sums[model] = day_sums(y, p, m, origin_days)
-        print(f"  {model}: WAPE {overall['wape']:.4f} ({subset})", flush=True)
+                q_idx = qpos.to_numpy(int) if qpos.notna().all() else None
+            r = add(model, COMMON, y_all[cpos], p[ii], m_all[cpos], cpos, pr, q_idx)
+            msg.append(f"общий подсет {r['wape']:.4f}")
+        else:
+            msg.append("общий подсет не покрыт")
+        print(f"  {model}: WAPE " + ", ".join(msg), flush=True)
 
     res = pd.DataFrame(rows)
     RESULTS.mkdir(parents=True, exist_ok=True)
     res.to_csv(RESULTS / f"metrics_{split}.csv", index=False)
 
-    # Сравнение с эталоном (по умолчанию — лучший из бейзлайнов) по полным наборам точек
-    base = [m_ for m_ in sums if m_ in BASELINES]
-    if ref is None and base:
-        main = res[(res.slice == "всё") & (res.subset == "все точки")].set_index("model")["wape"]
-        ref = main.loc[base].idxmin()
+    # Сравнение с эталоном (по умолчанию — лучший из бейзлайнов): бутстреп по дням, на обоих наборах точек
+    if ref is None:
+        main_ = res[(res.slice == "всё") & (res.subset == COMMON) & res.model.isin(BASELINES)]
+        ref = main_.set_index("model")["wape"].idxmin() if len(main_) else None
     comp = []
-    if ref in sums:
-        ae_ref, ysum = sums[ref]
-        for model, (ae, _) in sums.items():
+    for subset in (FULL, COMMON):
+        if ref not in sums[subset]:
+            continue
+        ae_ref, ysum = sums[subset][ref]
+        for model, (ae, _) in sums[subset].items():
             d, lo, hi = bootstrap_diff(ae, ae_ref, ysum)
-            comp.append({"model": model, "ref": ref, "wape_diff": d, "ci_low": lo, "ci_high": hi,
-                         "significant": bool(hi < 0 or lo > 0)})
-        pd.DataFrame(comp).to_csv(RESULTS / f"compare_{split}.csv", index=False)
-    return res, pd.DataFrame(comp)
+            comp.append({"subset": subset, "model": model, "ref": ref, "wape_diff": d, "ci_low": lo,
+                         "ci_high": hi, "significant": bool(hi < 0 or lo > 0)})
+    comp = pd.DataFrame(comp)
+    comp.to_csv(RESULTS / f"compare_{split}.csv", index=False)
+    return res, comp
 
 
-def summary(res: pd.DataFrame, comp: pd.DataFrame) -> pd.DataFrame:
-    main = res[(res.slice == "всё") & (res.subset != "общий подсет")].set_index("model")[["wape", "mae", "rmse", "bias", "mase"]]
-    hz = res[res.slice.str.startswith("горизонт")].pivot_table(index="model", columns="slice", values="wape")
+def summary(res: pd.DataFrame, comp: pd.DataFrame, subset: str = COMMON) -> pd.DataFrame:
+    r = res[res.subset == subset]
+    out = r[r.slice == "всё"].set_index("model")[["wape", "mae", "rmse", "bias", "mase"]]
+    hz = r[r.slice.str.startswith("горизонт")].pivot_table(index="model", columns="slice", values="wape")
     hz.columns = [c.replace("горизонт ", "WAPE ") for c in hz.columns]
-    hz = hz[[f"WAPE {k}" for k in HORIZON_GROUPS if f"WAPE {k}" in hz]]
-    out = main.join(hz)
-    cs = res[res.subset == "общий подсет"].set_index("model")
+    out = out.join(hz[[f"WAPE {k}" for k in HORIZON_GROUPS if f"WAPE {k}" in hz]])
     for c in ["wql", "cov80"]:
-        if c in cs:
-            out[c] = cs[c]
-    if len(comp):
-        c = comp.set_index("model")
+        if c in r and r[c].notna().any():
+            out[c] = r[r.slice == "всё"].set_index("model")[c]
+    c = comp[comp.subset == subset].set_index("model") if len(comp) else pd.DataFrame()
+    if len(c):
         out[f"Δ к {c['ref'].iloc[0]} [95% ДИ]"] = [
             f"{c.loc[m, 'wape_diff']:+.4f} [{c.loc[m, 'ci_low']:+.4f}; {c.loc[m, 'ci_high']:+.4f}]" if m in c.index else ""
             for m in out.index]
@@ -277,7 +289,10 @@ def main():
     a = ap.parse_args()
     res, comp = evaluate(a.split, a.models, a.ref)
     pd.set_option("display.width", 200, "display.max_columns", 30)
-    print("\n" + summary(res, comp).round(4).to_string())
+    for subset in (FULL, COMMON):
+        t = summary(res, comp, subset)
+        if len(t):
+            print(f"\n=== {subset} ===\n" + t.round(4).to_string())
     print(f"\nПодробно: {RESULTS / f'metrics_{a.split}.csv'}")
 
 
