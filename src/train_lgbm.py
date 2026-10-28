@@ -63,7 +63,7 @@ def main():
     ap.add_argument("--stride", type=int, default=7)
     ap.add_argument("--hpo", type=int, default=8, help="горизонтов на точку прогноза в обучении")
     ap.add_argument("--rounds", type=int, default=3000)
-    ap.add_argument("--lr", type=float, default=0.05)
+    ap.add_argument("--lr", type=float, default=0.1)       # 0.05 не сходилась за 3000 деревьев, а прогноз ∝ числу деревьев
     ap.add_argument("--leaves", type=int, default=255)
     ap.add_argument("--min-leaf", type=int, default=200)
     ap.add_argument("--splits", nargs="+", default=["val", "test"])
