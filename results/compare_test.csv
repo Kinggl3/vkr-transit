@@ -1,4 +1,15 @@
-model,ref,wape_diff,ci_low,ci_high,significant
-median4w,norm_level,0.012740359,0.007085173,0.01943974,True
-norm_level,norm_level,0.0,0.0,0.0,False
-snaive168,norm_level,0.026122272,0.01557453,0.037861716,True
+subset,model,ref,wape_diff,ci_low,ci_high,significant
+все точки,lgbm,norm_level,-0.023667298,-0.031636257,-0.017125987,True
+все точки,lgbm_all,norm_level,-0.022816963,-0.030962825,-0.01617408,True
+все точки,median4w,norm_level,0.012740359,0.007085173,0.01943974,True
+все точки,norm_level,norm_level,0.0,0.0,0.0,False
+все точки,snaive168,norm_level,0.026122272,0.01557453,0.037861716,True
+общий подсет,lgbm,norm_level,-0.023531348,-0.031122332,-0.016827809,True
+общий подсет,lgbm_all,norm_level,-0.02261787,-0.030313073,-0.015718373,True
+общий подсет,lgbm_dist,norm_level,-0.023354672,-0.031583305,-0.016545936,True
+общий подсет,lgbm_line,norm_level,-0.022725552,-0.030821433,-0.015880054,True
+общий подсет,lgbm_od_dyn,norm_level,-0.023183353,-0.031026991,-0.016445508,True
+общий подсет,lgbm_od_in,norm_level,-0.022623628,-0.030138243,-0.016138766,True
+общий подсет,median4w,norm_level,0.013016321,0.0073252665,0.02012202,True
+общий подсет,norm_level,norm_level,0.0,0.0,0.0,False
+общий подсет,snaive168,norm_level,0.026666142,0.01604838,0.039014824,True
