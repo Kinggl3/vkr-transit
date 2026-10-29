@@ -7,6 +7,8 @@
                 Поправка своя для каждого горизонта h, коэффициенты — линейная регрессия на train
                 (3 числа на горизонт, общие для всех станций). Без соседей и без внешних признаков —
                 это «потолок» того, что даёт собственная недавняя история станции.
+  ha          — историческое среднее, как в статьях о прогнозе пассажиропотока метро: среднее того же часа
+                по 20 последним дням того же типа (будни / выходные и праздники) до дня точки прогноза.
 
 Все три используют только часы < T (точка прогноза), минимальный лаг нормы — 168 ч > 24 ч.
 
@@ -87,11 +89,55 @@ def fit_level(data: Data, norm: np.ndarray, stride: int = 7, start: str = "2023-
     return coef
 
 
+HA_DAYS = 20
+
+
+def day_type(data: Data) -> pd.Series:
+    """Тип каждого дня: 0 — будний, 1 — выходной или праздник."""
+    cov = data.cov
+    d = data.index.normalize()
+    off = ((cov["dow"].to_numpy() >= 5) | (cov["is_holiday"].to_numpy() > 0)).astype(int)
+    return pd.Series(off, index=d).groupby(level=0).max()
+
+
+def historical_average(data: Data, origins: np.ndarray, days: int = HA_DAYS) -> np.ndarray:
+    """(O, 24, N) среднее того же часа по `days` последним дням того же типа строго до дня точки прогноза.
+
+    День точки прогноза не используется целиком (часть его часов ещё не наступила)."""
+    dates = data.index.normalize()
+    dtype = day_type(data)
+    D = dtype.index
+    dpos = pd.Series(np.arange(len(D)), index=D)
+    N = len(data.stations)
+    daily = np.full((len(D), 24, N), np.nan, "float32")                 # день × час × станция
+    di, hi = dpos[dates].to_numpy(), data.index.hour.to_numpy()
+    vals = np.where(data.open, data.y, np.nan)
+    daily[di, hi] = vals                                                 # сдвоенный час осени: берётся последний
+    # as_of[k, τ] — среднее по последним `days` дням типа τ среди дней < k
+    as_of = np.full((len(D) + 1, 2, 24, N), np.nan, "float32")
+    for tau in (0, 1):
+        idx = np.where(dtype.to_numpy() == tau)[0]
+        for j, k in enumerate(idx):
+            nxt = idx[j + 1] if j + 1 < len(idx) else len(D)
+            window = daily[idx[max(0, j - days + 1):j + 1]]
+            with np.errstate(all="ignore"):
+                m = np.nanmean(window, axis=0) if len(window) >= 5 else np.full((24, N), np.nan, "float32")
+            as_of[k + 1:nxt + 1, tau] = m
+    tidx = data.target_index(origins)
+    o_day = dpos[dates[origins]].to_numpy()                             # день точки прогноза
+    t_type = dtype.to_numpy()[dpos[dates[tidx.ravel()]].to_numpy()].reshape(tidx.shape)
+    t_hour = data.index.hour.to_numpy()[tidx]
+    return as_of[o_day[:, None], t_type, t_hour]                         # (O, 24, N)
+
+
 def predict(name: str, data: Data, norm: np.ndarray, origins: np.ndarray, coef=None) -> np.ndarray:
     tidx = data.target_index(origins)
     nm = norm[tidx]
     week = lagged(data.y, data.open, 168)[tidx]
-    if name == "median4w":
+    if name == "ha":
+        p = historical_average(data, origins)
+        p = np.where(np.isnan(p), np.where(np.isnan(nm), week, nm), p)
+    elif name == "median4w":
         p = np.where(np.isnan(nm), week, nm)
     elif name == "snaive168":
         p = np.where(np.isnan(week), nm, week)
@@ -121,12 +167,13 @@ def main():
         print(f"  h={h + 1:>2}: {coef[h, 0]:+.3f}  {coef[h, 1]:+.3f}  {coef[h, 2]:+.3f}")
     for split in a.splits:
         origins = data.origins(split)
-        for name in ("snaive168", "median4w", "norm_level"):
+        for name in ("snaive168", "median4w", "norm_level", "ha"):
             with Timer() as t:
                 p = predict(name, data, norm, origins, coef)
             path = save_preds(name, split, data, origins, p)
             fit_s = t_fit.seconds if name == "norm_level" else 0.0
-            log_run(name, split, {"eps": EPS, "weeks": len(WEEKS)} if name != "snaive168" else {},
+            log_run(name, split, {"eps": EPS, "weeks": len(WEEKS)} if name in ("median4w", "norm_level")
+                    else ({"days": HA_DAYS} if name == "ha" else {}),
                     fit_s, t.seconds + (t_norm.seconds if name != "snaive168" else 0), len(origins), t.peak_mb)
             print(f"{split} {name}: {len(origins)} точек прогноза -> {path.name}")
 

@@ -22,7 +22,7 @@ import pandas as pd
 from config import RAW
 from forecasting import H, PREDS, RESULTS, STRIDE_COMMON, Data, load_preds
 
-BASELINES = ("snaive168", "median4w", "norm_level")
+BASELINES = ("snaive168", "median4w", "norm_level", "ha")
 FULL, COMMON = "все точки", "общий подсет"
 HORIZON_GROUPS = {"h1": (1, 1), "h2-3": (2, 3), "h4-6": (4, 6), "h7-12": (7, 12), "h13-24": (13, 24)}
 HOUR_GROUPS = {"ночь 0–5": (0, 5), "утренний пик 6–9": (6, 9), "день 10–15": (10, 15),
