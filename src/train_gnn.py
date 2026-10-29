@@ -29,7 +29,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from baselines import EPS, lagged
-from config import SPLITS
+from config import PERIODS, SPLITS
 from features import FeatureBuilder
 from forecasting import H, RESULTS, Data, Timer, log_run, save_preds
 
@@ -209,7 +209,7 @@ def run_model(model, tb: Tensors, origins, weather, static, fixed, dyn, device, 
 
 def fit(tb: Tensors, until, a, fixed, dyn, static, device):
     d = tb.d
-    end = SPLITS[until][1]
+    end = PERIODS[until][1]
     start = max(int(d.pos[TRAIN_START]), a.hist + 1)
     origins = np.arange(start, int(d.pos[end]) - H + 2)
     es_start = int(d.pos[end.normalize() - pd.Timedelta(weeks=ES_WEEKS) + pd.Timedelta(days=1)])
@@ -331,12 +331,13 @@ def main():
     (RESULTS / "models").mkdir(exist_ok=True)
     fitted = {}
     for split in a.splits:
-        until = "val" if (split == "test" and a.refit_for_test) else "train"
+        until = {"stack": "pre_stack", "test": "val" if a.refit_for_test else "train"}.get(split, "train")
         if until not in fitted:
             if device.type == "cuda":
                 torch.cuda.reset_peak_memory_stats()
             fitted[until] = fit(tb, until, a, fixed, dyn, static, device)
-            torch.save(fitted[until][0].state_dict(), RESULTS / "models" / f"{a.name}{'' if until == 'train' else '_trainval'}.pt")
+            tag = {"train": "", "val": "_trainval", "pre_stack": "_prestack"}[until]
+            torch.save(fitted[until][0].state_dict(), RESULTS / "models" / f"{a.name}{tag}.pt")
         model, factor, fit_s, best = fitted[until]
         with Timer() as t:
             origins, p = predict_split(model, tb, split, a, fixed, dyn, static, device, factor)

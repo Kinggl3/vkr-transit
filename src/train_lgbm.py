@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 
 from baselines import EPS, lagged
-from config import SPLITS
+from config import PERIODS
 from features import FeatureBuilder, to_counts
 from forecasting import H, RESULTS, Data, Timer, log_run, save_preds
 
@@ -66,7 +66,7 @@ def fit(fb: FeatureBuilder, data: Data, until: str, a, rng):
     """Обучает модель на точках прогноза от TRAIN_START до конца выборки until ('train' или 'val').
 
     Возвращает (модель, множители поправки по горизонтам (24,), секунды)."""
-    end = SPLITS[until][1]
+    end = PERIODS[until][1]
     origins = np.arange(int(data.pos[TRAIN_START]), int(data.pos[end]) - H + 2, a.stride)
     es_start = int(data.pos[end.normalize() - pd.Timedelta(weeks=ES_WEEKS) + pd.Timedelta(days=1)])
     tr = origins[origins + H - 1 < es_start]                   # прогноз целиком до окна ранней остановки
@@ -134,11 +134,11 @@ def main():
 
     fitted = {}
     for split in a.splits:
-        until = "val" if (split == "test" and a.refit_for_test) else "train"
+        until = {"stack": "pre_stack", "test": "val" if a.refit_for_test else "train"}.get(split, "train")
         if until not in fitted:
             model, factor, fit_s = fit(fb, data, until, a, np.random.default_rng(a.seed))
             fitted[until] = (model, factor, fit_s)
-            tag = "" if until == "train" else "_trainval"
+            tag = {"train": "", "val": "_trainval", "pre_stack": "_prestack"}[until]
             fi = pd.DataFrame({"feature": model.feature_name(), "gain": model.feature_importance("gain")})
             fi["share"] = fi["gain"] / fi["gain"].sum()
             fi.sort_values("share", ascending=False).to_csv(RESULTS / f"fi_{a.name}{tag}.csv", index=False)

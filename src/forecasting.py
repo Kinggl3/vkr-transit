@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from config import PROCESSED, ROOT, SPLITS
+from config import PERIODS, PROCESSED, ROOT
 
 H = 24                                    # горизонт: 24 часа
 STRIDE_COMMON = 7                         # общий подсет точек прогноза: каждая 7-я (7 и 24 взаимно просты —
@@ -57,7 +57,7 @@ class Data:
 
     def split_bounds(self, split: str) -> tuple[int, int]:
         """Номера первого и последнего часа выборки (включительно)."""
-        a, b = SPLITS[split]
+        a, b = PERIODS[split]
         return int(self.pos[a]), int(self.pos[b])
 
     def origins(self, split: str, stride: int = 1) -> np.ndarray:
