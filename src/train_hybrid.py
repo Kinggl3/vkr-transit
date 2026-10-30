@@ -27,6 +27,11 @@
   no_chronos  full без Chronos-2
   no_gnn      full без графовой сети
   lgbm_only   только LightGBM + его недавние ошибки          (выигрыш от объединения или от поправки?)
+
+--on-blend: деревья стартуют не с нуля, а с линейного смешивания тех же моделей и учат только поправку к нему.
+Первый запуск (с нуля) показал, что мета-LightGBM хуже простого смешивания: при ранней остановке деревьям
+не хватает итераций даже на то, чтобы точно повторить сам прогноз базовой модели (lgbm_only хуже lgbm_final на 4%).
+  python src/train_hybrid.py --on-blend --prefix hybr --variants full nonbr no_resid no_chronos no_gnn lgbm_only
 """
 
 import argparse
@@ -173,14 +178,18 @@ def fit_blend(Xtr, ytr, wtr, Xes, yes, wes, keys):
 
 
 def fit_lgbm(Xtr, ytr, wtr, Xes, yes, wes, cols, a):
+    """Мета-LightGBM. С --on-blend деревья учат поправку к линейному смешиванию тех же моделей (init_score),
+    без него — прогноз с нуля."""
+    keys = [c[2:] for c in cols if c.startswith("l_")]
+    base = fit_blend(Xtr, ytr, wtr, Xes, yes, wes, keys)["predict"] if a.on_blend else (lambda X: np.zeros(len(X)))
     params = {"objective": "regression", "learning_rate": a.lr, "num_leaves": a.leaves, "min_data_in_leaf": a.min_leaf,
               "feature_fraction": 0.8, "bagging_fraction": 0.8, "bagging_freq": 1, "lambda_l2": 1.0,
               "seed": a.seed, "verbose": -1, "num_threads": 0}
-    dtr = lgb.Dataset(Xtr[cols], ytr, weight=wtr)
-    des = lgb.Dataset(Xes[cols], yes, weight=wes, reference=dtr)
+    dtr = lgb.Dataset(Xtr[cols], ytr, weight=wtr, init_score=base(Xtr))
+    des = lgb.Dataset(Xes[cols], yes, weight=wes, init_score=base(Xes), reference=dtr)
     model = lgb.train(params, dtr, a.rounds, valid_sets=[des], valid_names=["es"],
                       callbacks=[lgb.early_stopping(100, verbose=False), lgb.log_evaluation(500)])
-    pred = lambda X: model.predict(X[cols], num_iteration=model.best_iteration, num_threads=0)
+    pred = lambda X: base(X) + model.predict(X[cols], num_iteration=model.best_iteration, num_threads=0)
     factor = bias_factor(pred(Xes), yes, wes, Xes["horizon"].to_numpy().astype(int))
     return {"kind": "lgbm", "model": model, "cols": cols, "predict": pred, "factor": factor}
 
@@ -226,7 +235,7 @@ def fit_all(meta, data, split, variants, a, bases_by_split):
                 fi = pd.DataFrame({"feature": m["cols"], "gain": m["model"].feature_importance("gain")})
                 fi["share"] = fi["gain"] / fi["gain"].sum()
                 tag = "" if split == "val" else "_trainval"
-                fi.sort_values("share", ascending=False).to_csv(RESULTS / f"fi_hyb_{v}{tag}.csv", index=False)
+                fi.sort_values("share", ascending=False).to_csv(RESULTS / f"fi_{a.prefix}_{v}{tag}.csv", index=False)
         m["fit_s"] = t.seconds
         out[v] = m
         print(f"  {v}: {t.seconds / 60:.1f} мин, {info}; поправка h1 ×{m['factor'][0]:.3f}, h24 ×{m['factor'][23]:.3f}",
@@ -275,6 +284,8 @@ def main():
     ap.add_argument("--lr", type=float, default=0.05)
     ap.add_argument("--leaves", type=int, default=63)
     ap.add_argument("--min-leaf", type=int, default=1000)
+    ap.add_argument("--on-blend", action="store_true", help="мета-модель учит поправку к линейному смешиванию")
+    ap.add_argument("--prefix", default="hyb", help="имена прогнозов: <prefix>_<вариант>")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--leak-test", action="store_true")
     a = ap.parse_args()
@@ -296,9 +307,9 @@ def main():
         ref = np.where(m, np.abs(bases_by_split[split]["lgbm"].get(origins) - y), 0).sum() / ys
         print(f"{split}: WAPE {BASES['lgbm']} {ref:.4f}", flush=True)
         for v, p in preds.items():
-            name = f"hyb_{v}"
+            name = f"{a.prefix}_{v}"
             save_preds(name, split, data, origins, p)
-            params = {k: val for k, val in vars(a).items() if k not in ("variants", "splits", "leak_test")}
+            params = {k: val for k, val in vars(a).items() if k not in ("variants", "splits", "leak_test", "prefix")}
             params.update(bases=BASES, trained_on="stack" if split == "val" else "stack+val",
                           bias_factor_mean=round(float(models[v]["factor"].mean()), 4))
             log_run(name, split, params, models[v]["fit_s"], pred_s / len(preds), len(origins), None)
