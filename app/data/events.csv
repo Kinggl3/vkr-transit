@@ -1,0 +1,159 @@
+kind,venue,start,source_id,status
+mlb_yankees,Yankee Stadium,2026-07-01 13:35:00,mlb:823530:2026-07-01,final
+mlb_yankees,Yankee Stadium,2026-07-03 19:05:00,mlb:823527:2026-07-03,final
+wnba_liberty,Barclays Center,2026-07-03 19:30:00,espn:401857037,final
+mlb_yankees,Yankee Stadium,2026-07-04 13:35:00,mlb:823526:2026-07-04,final
+mlb_yankees,Yankee Stadium,2026-07-05 13:35:00,mlb:823525:2026-07-05,final
+milb_cyclones,Maimonides Park,2026-07-07 18:40:00,mlb:822351:2026-07-07,final
+mlb_mets,Citi Field,2026-07-07 19:10:00,mlb:823607:2026-07-07,final
+wnba_liberty,Barclays Center,2026-07-07 20:00:00,espn:401857046,final
+milb_cyclones,Maimonides Park,2026-07-08 18:40:00,mlb:822341:2026-07-08,final
+mlb_mets,Citi Field,2026-07-08 19:10:00,mlb:823605:2026-07-08,final
+mlb_mets,Citi Field,2026-07-09 13:10:00,mlb:823606:2026-07-09,final
+milb_cyclones,Maimonides Park,2026-07-09 18:40:00,mlb:822346:2026-07-09,final
+milb_cyclones,Maimonides Park,2026-07-10 18:40:00,mlb:822342:2026-07-10,final
+mlb_mets,Citi Field,2026-07-10 19:15:00,mlb:823604:2026-07-10,final
+mlb_mets,Citi Field,2026-07-11 16:10:00,mlb:823603:2026-07-11,final
+milb_cyclones,Maimonides Park,2026-07-11 18:00:00,mlb:822344:2026-07-11,final
+mlb_mets,Citi Field,2026-07-12 13:40:00,mlb:823602:2026-07-12,final
+milb_cyclones,Maimonides Park,2026-07-12 14:00:00,mlb:822343:2026-07-12,final
+milb_cyclones,Maimonides Park,2026-07-17 18:40:00,mlb:822345:2026-07-17,final
+mlb_yankees,Yankee Stadium,2026-07-17 19:05:00,mlb:823524:2026-07-17,final
+milb_cyclones,Maimonides Park,2026-07-18 18:00:00,mlb:822337:2026-07-18,postponed
+mlb_yankees,Yankee Stadium,2026-07-18 20:08:00,mlb:823523:2026-07-18,postponed
+milb_cyclones,Maimonides Park,2026-07-19 12:00:00,mlb:822334:2026-07-19,final
+milb_cyclones,Maimonides Park,2026-07-19 12:05:00,mlb:822337:2026-07-19,final
+mlb_yankees,Yankee Stadium,2026-07-19 12:35:00,mlb:823523:2026-07-19,final
+mlb_yankees,Yankee Stadium,2026-07-19 19:20:00,mlb:823521:2026-07-19,final
+mlb_yankees,Yankee Stadium,2026-07-20 19:05:00,mlb:823522:2026-07-20,final
+mlb_yankees,Yankee Stadium,2026-07-21 19:05:00,mlb:823519:2026-07-21,postponed
+mlb_yankees,Yankee Stadium,2026-07-22 13:05:00,mlb:823518:2026-07-22,final
+wnba_liberty,Barclays Center,2026-07-22 19:00:00,espn:401857088,final
+mlb_yankees,Yankee Stadium,2026-07-22 19:05:00,mlb:823519:2026-07-22,final
+mlb_mets,Citi Field,2026-07-24 19:10:00,mlb:823601:2026-07-24,final
+mlb_mets,Citi Field,2026-07-25 19:15:00,mlb:823600:2026-07-25,final
+mlb_mets,Citi Field,2026-07-26 13:40:00,mlb:823599:2026-07-26,final
+mlb_mets,Citi Field,2026-07-27 19:10:00,mlb:823597:2026-07-27,final
+milb_cyclones,Maimonides Park,2026-07-28 18:40:00,mlb:822335:2026-07-28,final
+mlb_mets,Citi Field,2026-07-28 19:10:00,mlb:823598:2026-07-28,postponed
+milb_cyclones,Maimonides Park,2026-07-29 12:00:00,mlb:822338:2026-07-29,final
+mlb_mets,Citi Field,2026-07-29 13:10:00,mlb:823596:2026-07-29,final
+mlb_mets,Citi Field,2026-07-29 19:10:00,mlb:823598:2026-07-29,final
+milb_cyclones,Maimonides Park,2026-07-30 18:40:00,mlb:822333:2026-07-30,final
+mlb_mets,Citi Field,2026-07-30 19:10:00,mlb:823595:2026-07-30,final
+milb_cyclones,Maimonides Park,2026-07-31 18:40:00,mlb:822339:2026-07-31,final
+mlb_mets,Citi Field,2026-07-31 19:10:00,mlb:823593:2026-07-31,final
+mlb_mets,Citi Field,2026-08-01 16:10:00,mlb:823594:2026-08-01,final
+milb_cyclones,Maimonides Park,2026-08-01 18:00:00,mlb:822336:2026-08-01,final
+mlb_mets,Citi Field,2026-08-02 13:40:00,mlb:823592:2026-08-02,final
+milb_cyclones,Maimonides Park,2026-08-02 14:00:00,mlb:822340:2026-08-02,final
+wnba_liberty,Barclays Center,2026-08-03 19:00:00,espn:401857112,final
+mlb_yankees,Yankee Stadium,2026-08-03 19:05:00,mlb:823520:2026-08-03,final
+mlb_yankees,Yankee Stadium,2026-08-04 19:05:00,mlb:823517:2026-08-04,final
+wnba_liberty,Barclays Center,2026-08-05 19:00:00,espn:401857116,final
+mlb_yankees,Yankee Stadium,2026-08-05 19:05:00,mlb:823516:2026-08-05,final
+mlb_yankees,Yankee Stadium,2026-08-07 19:05:00,mlb:823515:2026-08-07,final
+mlb_yankees,Yankee Stadium,2026-08-08 15:05:00,mlb:823514:2026-08-08,final
+wnba_liberty,Barclays Center,2026-08-09 12:30:00,espn:401857128,final
+mlb_yankees,Yankee Stadium,2026-08-09 13:35:00,mlb:823513:2026-08-09,final
+milb_cyclones,Maimonides Park,2026-08-11 18:40:00,mlb:822330:2026-08-11,final
+mlb_yankees,Yankee Stadium,2026-08-11 19:05:00,mlb:823512:2026-08-11,final
+milb_cyclones,Maimonides Park,2026-08-12 18:40:00,mlb:822331:2026-08-12,final
+mlb_yankees,Yankee Stadium,2026-08-12 19:05:00,mlb:823511:2026-08-12,final
+mlb_yankees,Yankee Stadium,2026-08-13 13:35:00,mlb:823508:2026-08-13,final
+milb_cyclones,Maimonides Park,2026-08-13 18:40:00,mlb:822332:2026-08-13,final
+wnba_liberty,Barclays Center,2026-08-13 20:00:00,espn:401857141,final
+milb_cyclones,Maimonides Park,2026-08-14 18:40:00,mlb:822328:2026-08-14,final
+mlb_mets,Citi Field,2026-08-14 19:10:00,mlb:823591:2026-08-14,final
+mlb_mets,Citi Field,2026-08-15 16:10:00,mlb:823588:2026-08-15,final
+milb_cyclones,Maimonides Park,2026-08-15 18:00:00,mlb:822326:2026-08-15,final
+mlb_mets,Citi Field,2026-08-16 13:40:00,mlb:823590:2026-08-16,final
+milb_cyclones,Maimonides Park,2026-08-16 14:00:00,mlb:822329:2026-08-16,final
+mlb_mets,Citi Field,2026-08-17 19:10:00,mlb:823589:2026-08-17,final
+mlb_mets,Citi Field,2026-08-18 19:10:00,mlb:823586:2026-08-18,final
+mlb_mets,Citi Field,2026-08-19 13:10:00,mlb:823587:2026-08-19,final
+mlb_yankees,Yankee Stadium,2026-08-21 19:05:00,mlb:823510:2026-08-21,final
+mlb_yankees,Yankee Stadium,2026-08-22 13:35:00,mlb:823509:2026-08-22,final
+wnba_liberty,Barclays Center,2026-08-22 19:00:00,espn:401857164,final
+usopen_fanweek,USTA Billie Jean King NTC,2026-08-23 11:00:00,usopen:20260823,final
+mlb_yankees,Yankee Stadium,2026-08-23 13:35:00,mlb:823507:2026-08-23,final
+usopen_fanweek,USTA Billie Jean King NTC,2026-08-24 11:00:00,usopen:20260824,final
+usopen_fanweek,USTA Billie Jean King NTC,2026-08-25 11:00:00,usopen:20260825,final
+mlb_yankees,Yankee Stadium,2026-08-25 19:05:00,mlb:823505:2026-08-25,final
+mlb_mets,Citi Field,2026-08-25 19:10:00,mlb:823585:2026-08-25,final
+usopen_fanweek,USTA Billie Jean King NTC,2026-08-26 11:00:00,usopen:20260826,final
+mlb_yankees,Yankee Stadium,2026-08-26 19:05:00,mlb:823506:2026-08-26,final
+mlb_mets,Citi Field,2026-08-26 19:10:00,mlb:823584:2026-08-26,final
+usopen_fanweek,USTA Billie Jean King NTC,2026-08-27 11:00:00,usopen:20260827,final
+mlb_yankees,Yankee Stadium,2026-08-27 19:05:00,mlb:823503:2026-08-27,final
+mlb_mets,Citi Field,2026-08-27 19:10:00,mlb:823581:2026-08-27,final
+wnba_liberty,Barclays Center,2026-08-27 20:00:00,espn:401857178,final
+usopen_fanweek,USTA Billie Jean King NTC,2026-08-28 11:00:00,usopen:20260828,final
+mlb_mets,Citi Field,2026-08-28 19:10:00,mlb:823583:2026-08-28,final
+mlb_yankees,Yankee Stadium,2026-08-28 19:15:00,mlb:823504:2026-08-28,final
+usopen_fanweek,USTA Billie Jean King NTC,2026-08-29 11:00:00,usopen:20260829,final
+wnba_liberty,Barclays Center,2026-08-29 13:00:00,espn:401857184,final
+mlb_yankees,Yankee Stadium,2026-08-29 13:05:00,mlb:823539:2026-08-29,final
+mlb_mets,Citi Field,2026-08-29 16:10:00,mlb:823582:2026-08-29,final
+mlb_yankees,Yankee Stadium,2026-08-29 19:15:00,mlb:823501:2026-08-29,final
+usopen_main,USTA Billie Jean King NTC,2026-08-30 11:00:00,usopen:20260830:11,final
+mlb_yankees,Yankee Stadium,2026-08-30 13:35:00,mlb:823502:2026-08-30,final
+mlb_mets,Citi Field,2026-08-30 15:10:00,mlb:823580:2026-08-30,final
+usopen_main,USTA Billie Jean King NTC,2026-08-30 19:00:00,usopen:20260830:19,final
+usopen_main,USTA Billie Jean King NTC,2026-08-31 11:00:00,usopen:20260831:11,final
+usopen_main,USTA Billie Jean King NTC,2026-08-31 19:00:00,usopen:20260831:19,final
+usopen_main,USTA Billie Jean King NTC,2026-09-01 11:00:00,usopen:20260901:11,final
+milb_cyclones,Maimonides Park,2026-09-01 17:30:00,mlb:822277:2026-09-01,final
+usopen_main,USTA Billie Jean King NTC,2026-09-01 19:00:00,usopen:20260901:19,final
+milb_cyclones,Maimonides Park,2026-09-01 21:01:00,mlb:822327:2026-09-01,final
+usopen_main,USTA Billie Jean King NTC,2026-09-02 11:00:00,usopen:20260902:11,final
+milb_cyclones,Maimonides Park,2026-09-02 18:40:00,mlb:822324:2026-09-02,final
+usopen_main,USTA Billie Jean King NTC,2026-09-02 19:00:00,usopen:20260902:19,final
+usopen_main,USTA Billie Jean King NTC,2026-09-03 11:00:00,usopen:20260903:11,final
+milb_cyclones,Maimonides Park,2026-09-03 16:00:00,mlb:822322:2026-09-03,final
+usopen_main,USTA Billie Jean King NTC,2026-09-03 19:00:00,usopen:20260903:19,final
+usopen_main,USTA Billie Jean King NTC,2026-09-04 11:00:00,usopen:20260904:11,final
+milb_cyclones,Maimonides Park,2026-09-04 18:40:00,mlb:822323:2026-09-04,final
+usopen_main,USTA Billie Jean King NTC,2026-09-04 19:00:00,usopen:20260904:19,final
+mlb_mets,Citi Field,2026-09-04 19:10:00,mlb:823579:2026-09-04,final
+usopen_main,USTA Billie Jean King NTC,2026-09-05 11:00:00,usopen:20260905:11,final
+mlb_mets,Citi Field,2026-09-05 16:10:00,mlb:823577:2026-09-05,final
+milb_cyclones,Maimonides Park,2026-09-05 18:00:00,mlb:822325:2026-09-05,final
+usopen_main,USTA Billie Jean King NTC,2026-09-05 19:00:00,usopen:20260905:19,final
+usopen_main,USTA Billie Jean King NTC,2026-09-06 11:00:00,usopen:20260906:11,final
+mlb_mets,Citi Field,2026-09-06 13:40:00,mlb:823578:2026-09-06,final
+milb_cyclones,Maimonides Park,2026-09-06 14:00:00,mlb:822319:2026-09-06,final
+usopen_main,USTA Billie Jean King NTC,2026-09-06 19:00:00,usopen:20260906:19,final
+usopen_main,USTA Billie Jean King NTC,2026-09-07 11:00:00,usopen:20260907:11,final
+usopen_main,USTA Billie Jean King NTC,2026-09-07 19:00:00,usopen:20260907:19,final
+usopen_main,USTA Billie Jean King NTC,2026-09-08 11:00:00,usopen:20260908:11,final
+usopen_main,USTA Billie Jean King NTC,2026-09-08 19:00:00,usopen:20260908:19,final
+mlb_yankees,Yankee Stadium,2026-09-08 19:05:00,mlb:823500:2026-09-08,final
+usopen_main,USTA Billie Jean King NTC,2026-09-09 11:00:00,usopen:20260909:11,final
+usopen_main,USTA Billie Jean King NTC,2026-09-09 19:00:00,usopen:20260909:19,final
+mlb_yankees,Yankee Stadium,2026-09-09 19:05:00,mlb:823497:2026-09-09,final
+usopen_main,USTA Billie Jean King NTC,2026-09-10 11:00:00,usopen:20260910:11,final
+usopen_main,USTA Billie Jean King NTC,2026-09-10 19:00:00,usopen:20260910:19,final
+mlb_yankees,Yankee Stadium,2026-09-10 19:05:00,mlb:823499:2026-09-10,final
+usopen_main,USTA Billie Jean King NTC,2026-09-11 11:00:00,usopen:20260911:11,final
+usopen_main,USTA Billie Jean King NTC,2026-09-11 19:00:00,usopen:20260911:19,final
+mlb_yankees,Yankee Stadium,2026-09-11 19:05:00,mlb:823498:2026-09-11,final
+usopen_main,USTA Billie Jean King NTC,2026-09-12 11:00:00,usopen:20260912:11,final
+mlb_yankees,Yankee Stadium,2026-09-12 13:35:00,mlb:823496:2026-09-12,final
+usopen_main,USTA Billie Jean King NTC,2026-09-12 19:00:00,usopen:20260912:19,final
+usopen_main,USTA Billie Jean King NTC,2026-09-13 11:00:00,usopen:20260913:11,final
+mlb_yankees,Yankee Stadium,2026-09-13 13:35:00,mlb:823495:2026-09-13,final
+usopen_main,USTA Billie Jean King NTC,2026-09-13 19:00:00,usopen:20260913:19,final
+mlb_mets,Citi Field,2026-09-14 19:10:00,mlb:823575:2026-09-14,final
+mlb_mets,Citi Field,2026-09-15 19:10:00,mlb:823574:2026-09-15,final
+mlb_mets,Citi Field,2026-09-16 19:10:00,mlb:823576:2026-09-16,final
+mlb_mets,Citi Field,2026-09-17 19:15:00,mlb:823573:2026-09-17,final
+mlb_mets,Citi Field,2026-09-18 19:15:00,mlb:823572:2026-09-18,final
+mlb_mets,Citi Field,2026-09-19 16:10:00,mlb:823571:2026-09-19,final
+mlb_mets,Citi Field,2026-09-20 13:10:00,mlb:823570:2026-09-20,final
+wnba_liberty,Barclays Center,2026-09-21 20:00:00,espn:401857206,final
+mlb_yankees,Yankee Stadium,2026-09-22 13:05:00,mlb:823543:2026-09-22,final
+mlb_yankees,Yankee Stadium,2026-09-22 19:05:00,mlb:823494:2026-09-22,final
+mlb_yankees,Yankee Stadium,2026-09-23 19:05:00,mlb:823492:2026-09-23,final
+wnba_liberty,Barclays Center,2026-09-23 20:00:00,espn:401857213,final
+mlb_yankees,Yankee Stadium,2026-09-24 19:05:00,mlb:823493:2026-09-24,final
